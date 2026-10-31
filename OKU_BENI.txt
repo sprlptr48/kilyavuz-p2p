@@ -1,0 +1,35 @@
+=============================================================
+   KILYAVUZ P2P — SUNUCUSUZ SES, CANLI EKRAN & SS UYGULAMASI
+=============================================================
+
+Kurulum veya sunucu GEREKTİRMEZ.
+
+NASIL ÇALIŞTIRILIR?
+-------------------
+1. ZIP dosyasını bir klasöre çıkartın.
+2. "baslat.bat" dosyasına çift tıklayın (veya doğrudan index.html'i açın).
+   Not: Chrome/Edge mikrofon ve ekran paylaşımı izinlerini sorunsuz
+   verebilmek için "baslat.bat" ile açmanız önerilir.
+
+NASIL BAĞLANILIR? (2 YÖNTEM VARDIR)
+-----------------------------------
+
+YÖNTEM 1: TAM SUNUCUSUZ HASH KODU (1. Sekme — Garantili)
+1. Kurucu kişi "Oda Kur & Hash Kopyala" butonuna basar.
+   Otomatik kopyalanan "P2P1..." ile başlayan Hash kodunu arkadaşına atar.
+2. Arkadaşı bu kodu 2. kutuya yapıştırıp "Hash'i İşle / Bağlan" der.
+   Otomatik kopyalanan "P2P2..." Yanıt Hash kodunu kurucuya geri atar.
+3. Kurucu "P2P2..." kodunu 2. kutuya yapıştırıp "Hash'i İşle / Bağlan" der.
+   Doğrudan şifreli P2P bağlantı başlar!
+
+YÖNTEM 2: TEK ODA HASH'İ (2. Sekme — Tek Kodla Hızlı)
+1. İkiniz de "2. Tek Oda Hash'i" sekmesine geçin.
+2. Aynı kısa kodu (Örn: KILYAVUZ-8492) yazıp "Bu Hash İle Odaya Gir" deyin.
+   Otomatik eşleşip bağlanırsınız!
+
+ÖZELLİKLER:
+-----------
+- Sesli Konuşma (Yankı engelleme, konuşma göstergesi, ses seviyesi ayarı)
+- 60 FPS Canlı Ekran Paylaşımı + Sistem Sesi (Bağlandıktan sonra tek tıkla aç/kapat)
+- Anlık Ekran Görüntüsü (SS) Yakala & Aç (veya Win+Shift+S sonrası Ctrl+V ile yapıştır)
+- P2P Anlık Yazılı Sohbet
