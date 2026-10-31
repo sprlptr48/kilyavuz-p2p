@@ -402,23 +402,24 @@
     .stream-stats:empty { display: none; }
     .stream-stats::before { content: "·"; margin-right: 8px; }
 
-    /* ---------- Yayın Seçici ---------- */
+    /* ---------- Yayın Seçici (Sıfır Ekstra Video Yükü) ---------- */
     .stream-strip { display: none; gap: 8px; padding: 8px 8px 0; overflow-x: auto; flex-shrink: 0; }
     .stream-tile {
-      position: relative; flex: 0 0 auto;
-      width: 156px; aspect-ratio: 16 / 9;
-      border-radius: 10px; overflow: hidden;
-      border: 2px solid var(--border-strong);
-      background: #000; cursor: pointer; padding: 0;
-      transition: border-color 0.15s;
+      display: inline-flex; align-items: center; gap: 8px;
+      flex: 0 0 auto; height: 38px;
+      padding: 0 13px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-2); color: var(--text-muted);
+      font: 600 0.78rem var(--font);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
     }
-    .stream-tile:hover { border-color: rgba(124, 108, 255, 0.6); }
-    .stream-tile.active { border-color: var(--accent); }
-    .stream-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .stream-tile:hover { border-color: rgba(124, 108, 255, 0.6); color: var(--text-main); background: var(--bg-3); }
+    .stream-tile.active { border-color: var(--accent); background: var(--accent-soft); color: var(--text-main); }
+    .stream-tile-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
     .stream-tile-label {
-      position: absolute; left: 5px; right: 5px; bottom: 5px;
-      font: 600 0.68rem var(--font); color: #fff; text-align: left;
-      background: rgba(0, 0, 0, 0.65); padding: 2px 6px; border-radius: 6px;
+      max-width: 180px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
@@ -636,6 +637,7 @@
             <span id="streamStats" class="stream-stats"></span>
           </div>
           <div class="overlay-actions">
+            <button class="btn btn-glass" id="btnTogglePreview" style="display:none;" onclick="toggleLocalPreview()">🙈 Önizlemeyi Gizle</button>
             <button class="btn btn-glass" id="btnSnapshot" style="display:none;" onclick="captureVideoFrame()">📸 Kare Kaydet</button>
             <button class="btn btn-glass" onclick="toggleFullscreen()">⛶ Tam Ekran</button>
           </div>
@@ -643,6 +645,15 @@
 
         <video id="mainVideo" autoplay playsinline></video>
         <img id="mainImage" alt="Paylaşılan ekran görüntüsü" onclick="toggleFullscreen()" />
+
+        <div class="stage-empty" id="localPreviewPaused" style="display:none;">
+          <div class="stage-empty-icon">🚀</div>
+          <h3>Ekranın şu an yayında</h3>
+          <p class="hint">
+            Oyun ve yayın FPS'in düşmesin diye kendi önizlemen duraklatıldı. Arkadaşın yayınını akıcı şekilde izliyor; gerçek değerler sol üstte yazar.
+          </p>
+          <button class="btn btn-outline" style="margin-top:4px;" onclick="toggleLocalPreview(true)">👁️ Kendi Önizlememi Göster</button>
+        </div>
 
         <div class="stage-empty" id="stageEmpty">
           <div class="stage-empty-icon">🖥️</div>
@@ -675,12 +686,13 @@
               <option value="1440">1440p</option>
               <option value="1080">1080p</option>
               <option value="720">720p</option>
+              <option value="540">540p (düşük sistem)</option>
             </select>
           </label>
           <label class="q-row">FPS
             <select id="qFps" onchange="onQualityChange()">
               <option value="auto" selected>🤖 Otomatik</option>
-              <option value="30">30 FPS</option>
+              <option value="30">30 FPS (stabil)</option>
               <option value="60">60 FPS</option>
               <option value="120">120 FPS</option>
               <option value="144">144 FPS</option>
@@ -689,21 +701,31 @@
           <label class="q-row">Bit hızı
             <select id="qBitrate" onchange="onQualityChange()">
               <option value="auto" selected>🤖 Otomatik</option>
+              <option value="1.5">1.5 Mbps (çok zayıf upload)</option>
               <option value="3">3 Mbps (zayıf internet)</option>
+              <option value="4.5">4.5 Mbps (720p60 ideal)</option>
               <option value="6">6 Mbps</option>
               <option value="10">10 Mbps</option>
               <option value="16">16 Mbps</option>
               <option value="25">25 Mbps (en yüksek)</option>
             </select>
           </label>
+          <label class="q-row">Kodek
+            <select id="qCodec" onchange="onQualityChange()">
+              <option value="auto" selected>🤖 Otomatik (GPU / VP8)</option>
+              <option value="vp8">⚡ VP8 (en stabil / düşük CPU)</option>
+              <option value="h264">🎞️ H.264 (ekran kartı)</option>
+            </select>
+          </label>
           <label class="q-row">Öncelik
             <select id="qMode" onchange="onQualityChange()">
-              <option value="motion" selected>Akıcılık (oyun)</option>
-              <option value="detail">Netlik (yazı / kod)</option>
+              <option value="motion" selected>🎮 Oyun (sabit çözünürlük)</option>
+              <option value="fps">⚡ Maks. FPS (esnek çözünürlük)</option>
+              <option value="detail">📝 Netlik (yazı / kod)</option>
             </select>
           </label>
           </div>
-          <div class="hint" id="qHint"><b>Otomatik:</b> çözünürlük, FPS ve bit hızını kendisi ayarlar. 1080p 60'tan başlar, bilgisayar ya da internet zorlanırsa düşürür, düzelince geri yükseltir. Gerçek değer yayının üstünde yazar.</div>
+          <div class="hint" id="qHint"><b>Otomatik:</b> ekran kartı hızlandırmasını ve internetini ölçer; zorlanırsa çözünürlük/FPS dalgalanması yapmadan uygun basamağa kilitlenir.</div>
         </div>
 
         <div class="control-group">
@@ -805,6 +827,12 @@
     // Sahnede gösterilebilecek tüm görüntüler: local-screen, remote-screen, local-cam, remote-cam
     const stageStreams = new Map();
     let activeStreamKey = null;
+    let localPreviewEnabled = false; // Yayıncının kendi ekran önizlemesi FPS düşürmesin diye varsayılan kapalı
+    let hwH264Supported = null;      // null: bilinmiyor, true: GPU H.264 var, false: yazılım (CPU)
+    let runtimeForceVp8 = false;     // H.264 yazılıma (OpenH264) düşerse veya CPU'yu boğarsa otomatik VP8'e geç
+    let lastAppliedCodecPref = "";
+    let screenNativeHeight = 0;
+    let screenNativeWidth = 0;
 
     // Chrome, kullanıcı tıklamadan önce oluşturulan AudioContext'leri "suspended" başlatır -> SESSİZLİK.
     // Tüm context'leri kaydedip ilk tıklamada / bağlantıda uyandırıyoruz.
@@ -878,11 +906,37 @@
     let quickWs = null;
     let quickClientId = "p_" + Math.random().toString(36).substring(2, 10);
 
+    // Tarayıcıda donanım hızlandırmalı (ekran kartı) WebRTC H.264 kodlayıcı var mı önceden ölç
+    async function probeHardwareCodecs() {
+      if (!navigator.mediaCapabilities || !navigator.mediaCapabilities.encodingInfo) return;
+      const candidates = ["video/H264", "video/H264; profile-level-id=42e01f"];
+      for (const contentType of candidates) {
+        try {
+          const info = await navigator.mediaCapabilities.encodingInfo({
+            type: "webrtc",
+            video: { contentType, width: 1280, height: 720, bitrate: 3500000, framerate: 60 }
+          });
+          if (info && typeof info.powerEfficient === "boolean") {
+            hwH264Supported = !!(info.supported && info.powerEfficient);
+            return;
+          }
+        } catch (e) {}
+      }
+    }
+
+    // Pencere küçültülünce kendi yayın önizlememiz açıksa otomatik duraklat (arkadaşın yayınına dokunmaz)
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && localPreviewEnabled && activeStreamKey === "local-screen") {
+        toggleLocalPreview(false);
+      }
+    });
+
     // Başlangıç Kontrolleri
     window.addEventListener("DOMContentLoaded", async () => {
       if (window.location.protocol === "file:") {
         document.getElementById("fileProtocolBanner").style.display = "block";
       }
+      probeHardwareCodecs();
       generateRandomRoomHash();
       await initLocalMicrophone();
       setupClipboardPaste();
@@ -984,12 +1038,16 @@
         micNoiseGateGain.connect(dest);
 
         const freqData = new Uint8Array(analyser.frequencyBinCount);
+        let lastGateTarget = -1;
 
         function processNoiseGate() {
           if (!rawStream.active) return;
           if (!isNoiseCancelEnabled) {
             // Gürültü engelleme kapalıysa sesi %100 ham geçir
-            micNoiseGateGain.gain.setTargetAtTime(1.0, micDspCtx.currentTime, 0.01);
+            if (lastGateTarget !== 1.0) {
+              lastGateTarget = 1.0;
+              micNoiseGateGain.gain.setTargetAtTime(1.0, micDspCtx.currentTime, 0.01);
+            }
           } else {
             analyser.getByteFrequencyData(freqData);
             // İnsan sesi frekans bandındaki enerjiyi ölç
@@ -1006,7 +1064,10 @@
             const gateOpen = now < ncHoldUntil;
             const target = gateOpen ? 1.0 : 0.0;
             // Konuşunca 4ms'de anında açılır, susunca yumuşakça gürültüyü kapatır
-            micNoiseGateGain.gain.setTargetAtTime(target, micDspCtx.currentTime, gateOpen ? 0.004 : 0.03);
+            if (target !== lastGateTarget) {
+              lastGateTarget = target;
+              micNoiseGateGain.gain.setTargetAtTime(target, micDspCtx.currentTime, gateOpen ? 0.004 : 0.03);
+            }
           }
           bgTicker.next(processNoiseGate);
         }
@@ -1084,23 +1145,36 @@
         source.connect(analyser);
         const data = new Uint8Array(analyser.frequencyBinCount);
         const avatar = document.getElementById(avatarElementId);
+        let wasSpeaking = false;
+        let lastDuckOutgoing = null;
+        let lastDuckIncoming = null;
 
         function checkVolume() {
-          if (!stream.active) return;
+          if (!stream.active) {
+            if (wasSpeaking && avatar) avatar.classList.remove("speaking");
+            try { ctx.close(); } catch (e) {}
+            allAudioContexts.delete(ctx);
+            return;
+          }
           analyser.getByteFrequencyData(data);
           let sum = 0;
           for (let i = 0; i < data.length; i++) sum += data[i];
           const avg = sum / data.length;
           const now = performance.now();
+          const isSpeaking = avg > 14 && (!(avatarElementId === "localAvatar" && isMicMuted));
 
-          if (avg > 14 && (!(avatarElementId === "localAvatar" && isMicMuted))) {
-            avatar.classList.add("speaking");
+          if (isSpeaking) {
+            if (!wasSpeaking) {
+              wasSpeaking = true;
+              avatar.classList.add("speaking");
+            }
             if (isRemoteMic) {
               remoteSpeakingUntil = now + 220;
             } else if (avatarElementId === "localAvatar") {
               localSpeakingUntil = now + 280;
             }
-          } else {
+          } else if (wasSpeaking) {
+            wasSpeaking = false;
             avatar.classList.remove("speaking");
           }
 
@@ -1110,14 +1184,23 @@
           // Tarayıcı restrictOwnAudio destekliyorsa arkadaşın sesi zaten yakalanmıyor -> kısmaya gerek yok (ses kaybı olmaz).
           if (screenAudioGateGain && screenAudioCtx && !localScreenEchoSafe) {
             const shouldDuckOutgoing = now < remoteSpeakingUntil;
-            const targetGain = shouldDuckOutgoing ? 0.0 : 1.0;
-            screenAudioGateGain.gain.setTargetAtTime(targetGain, screenAudioCtx.currentTime, shouldDuckOutgoing ? 0.008 : 0.07);
+            if (shouldDuckOutgoing !== lastDuckOutgoing) {
+              lastDuckOutgoing = shouldDuckOutgoing;
+              const targetGain = shouldDuckOutgoing ? 0.0 : 1.0;
+              screenAudioGateGain.gain.setTargetAtTime(targetGain, screenAudioCtx.currentTime, shouldDuckOutgoing ? 0.008 : 0.07);
+            }
+          } else {
+            lastDuckOutgoing = null;
           }
 
           // YANKI ENGELLEME (KATMAN 2 - ALICI TARAF):
           // Biz konuşurken karşıdan gelen ekran paylaşımı sesini hafifçe kısarak gecikmeli yankıyı sıfırla
           if (avatarElementId === "localAvatar") {
-            applyScreenAudioVolumeWithDucking(now < localSpeakingUntil);
+            const shouldDuckIn = now < localSpeakingUntil;
+            if (shouldDuckIn !== lastDuckIncoming) {
+              lastDuckIncoming = shouldDuckIn;
+              applyScreenAudioVolumeWithDucking(shouldDuckIn);
+            }
           }
 
           bgTicker.next(checkVolume);
@@ -1412,12 +1495,17 @@
         case "renegotiate-answer":
           if (!pc || pc.signalingState !== "have-local-offer") return;
           await pc.setRemoteDescription(boostSdp(msg.sdp));
-          applyScreenQuality(false);
+          applyScreenQuality(false, false);
           flushPendingRenegotiate();
           break;
 
         case "send-stats":
-          remoteSendInfo = { reason: msg.reason || "none", mbps: msg.mbps || 0 };
+          remoteSendInfo = {
+            reason: msg.reason || "none",
+            mbps: msg.mbps || 0,
+            codec: msg.codec || "",
+            hw: msg.hw || ""
+          };
           break;
 
         case "cam-stopped":
@@ -1738,11 +1826,22 @@
       }
 
       try {
-        autoLevel = 0;
+        if (hwH264Supported === null) {
+          await Promise.race([probeHardwareCodecs(), new Promise(r => setTimeout(r, 150))]);
+        }
+        const qInit = getQuality();
+        runtimeForceVp8 = false;
+        h264StruggleCount = 0;
+        autoFailCounts = {};
         autoBadCount = 0;
         autoGoodSince = 0;
+        autoChangedAt = Date.now();
+        localPreviewEnabled = false;
+        // Tarayıcıda ekran kartı kodlaması kapalıysa (CPU yazılım modu) otomatik modda 1080p60 yerine direkt 720p60'tan başla
+        autoLevel = (qInit.res === "auto" && qInit.fps === "auto" && hwH264Supported === false) ? 1 : 0;
+
         localScreenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: Object.assign({ cursor: "always" }, screenVideoConstraints(getQuality())),
+          video: Object.assign({ cursor: "always" }, captureVideoConstraints(qInit)),
           audio: {
             // Sistem/oyun/müzik sesine WebRTC işleme uygulanmasın (yoksa ses kesik kesik / boğuk gider)
             echoCancellation: false,
@@ -1765,13 +1864,19 @@
         btn.classList.replace("btn-primary", "btn-danger");
 
         const videoTrack = localScreenStream.getVideoTracks()[0];
+        const initSt = videoTrack.getSettings ? videoTrack.getSettings() : {};
+        screenNativeHeight = initSt.height || 1080;
+        screenNativeWidth = initSt.width || 1920;
+
         videoTrack.onended = () => {
           stopScreenShare();
         };
 
-        try { videoTrack.contentHint = getQuality().mode === "detail" ? "detail" : "motion"; } catch (e) {}
+        // ÖNEMLİ: Ekran paylaşımında "motion" verilirse Chrome bunu webcam sanıp en ufak oyun hareketinde çözünürlüğü 360p'ye çeker!
+        // Boş ("") bırakınca Chrome doğal SCREENSHARE modunda kalır; yazı/kod modunda ise "detail" kullanılır.
+        try { videoTrack.contentHint = qInit.mode === "detail" ? "detail" : ""; } catch (e) {}
 
-        // Kendi sahnemizde video önizlemesi (yayın seçicide "Senin Ekranın")
+        // Kendi sahnemizde yayın kaydı (FPS düşürmemek için kendi video önizlememiz varsayılan olarak duraklatılır)
         registerStream("local-screen", () => "Senin Ekranın", new MediaStream([videoTrack]), { local: true });
 
         // Ekran sistem sesini Yankı Engelleyici Gate (Web Audio) üzerinden geçir
@@ -1781,7 +1886,7 @@
         if (rawScreenAudio) {
           let settings = {};
           try { settings = rawScreenAudio.getSettings ? rawScreenAudio.getSettings() : {}; } catch (e) {}
-          const surface = videoTrack.getSettings ? videoTrack.getSettings().displaySurface : "";
+          const surface = initSt.displaySurface || "";
           // Sekme paylaşımında sadece o sekmenin sesi gider -> bizim sayfa sesimiz zaten yok.
           localScreenEchoSafe = settings.restrictOwnAudio === true || surface === "browser";
           if (!localScreenEchoSafe) {
@@ -1809,7 +1914,7 @@
           addScreenTracksToPc();
           await renegotiate();
         }
-        applyScreenQuality(true);
+        await applyScreenQuality(true, false);
       } catch (err) {
         console.warn("Ekran paylaşımı iptal edildi veya hata oluştu:", err);
       }
@@ -1824,6 +1929,10 @@
       }
       screenSenders = [];
       outgoingScreenAudioTrack = null;
+      screenNativeHeight = 0;
+      screenNativeWidth = 0;
+      runtimeForceVp8 = false;
+      localPreviewEnabled = false;
 
       if (screenAudioCtx) {
         try { await screenAudioCtx.close(); } catch (e) {}
@@ -1847,38 +1956,69 @@
       if (hadSenders) await renegotiate();
     }
 
-    function showLiveVideoOnStage(stream, titleText) {
+    function toggleLocalPreview(force) {
+      localPreviewEnabled = typeof force === "boolean" ? force : !localPreviewEnabled;
+      if (activeStreamKey === "local-screen") {
+        selectStream("local-screen");
+      }
+    }
+
+    function showLiveVideoOnStage(stream, titleText, streamKey) {
       const videoEl = document.getElementById("mainVideo");
       const imgEl = document.getElementById("mainImage");
       const emptyEl = document.getElementById("stageEmpty");
+      const pausedEl = document.getElementById("localPreviewPaused");
       const tagEl = document.getElementById("streamTag");
       const snapBtn = document.getElementById("btnSnapshot");
+      const prevBtn = document.getElementById("btnTogglePreview");
 
       imgEl.style.display = "none";
       emptyEl.style.display = "none";
-      videoEl.style.display = "block";
-      videoEl.srcObject = stream;
-      // Ses izleri bağımsız <audio> kanallarından çaldığı için video elementi her zaman sessizde kalır
-      videoEl.muted = true;
-      videoEl.play().catch(() => {});
 
       tagEl.style.display = "inline-flex";
       document.getElementById("streamTitle").textContent = titleText;
       document.getElementById("streamDot").style.background = "#ef4444";
+
+      // Yayıncının kendi ekranını kendi bilgisayarında 60 FPS boyamayı duraklat -> GPU/CPU %100 oyuna ve kodlayıcıya kalsın
+      if (streamKey === "local-screen" && !localPreviewEnabled) {
+        try { videoEl.pause(); } catch (e) {}
+        videoEl.srcObject = null;
+        videoEl.style.display = "none";
+        if (pausedEl) pausedEl.style.display = "flex";
+        snapBtn.style.display = "none";
+        if (prevBtn) prevBtn.style.display = "none";
+        return;
+      }
+
+      if (pausedEl) pausedEl.style.display = "none";
+      videoEl.style.display = "block";
+      if (videoEl.srcObject !== stream) {
+        videoEl.srcObject = stream;
+      }
+      // Ses izleri bağımsız <audio> kanallarından çaldığı için video elementi her zaman sessizde kalır
+      videoEl.muted = true;
+      videoEl.play().catch(() => {});
+
       snapBtn.style.display = "inline-flex";
+      if (prevBtn) prevBtn.style.display = streamKey === "local-screen" ? "inline-flex" : "none";
     }
 
     function hideLiveVideoOnStage() {
       const videoEl = document.getElementById("mainVideo");
       const emptyEl = document.getElementById("stageEmpty");
+      const pausedEl = document.getElementById("localPreviewPaused");
       const tagEl = document.getElementById("streamTag");
       const snapBtn = document.getElementById("btnSnapshot");
+      const prevBtn = document.getElementById("btnTogglePreview");
 
+      try { videoEl.pause(); } catch (e) {}
       videoEl.srcObject = null;
       videoEl.classList.remove("mirror");
       videoEl.style.display = "none";
+      if (pausedEl) pausedEl.style.display = "none";
       tagEl.style.display = "none";
       snapBtn.style.display = "none";
+      if (prevBtn) prevBtn.style.display = "none";
       emptyEl.style.display = "flex";
     }
 
@@ -1937,23 +2077,68 @@
       setTimeout(renegotiate, 60);
     }
 
-    // Laptop işlemcisi 1080p 60+ FPS'i yazılımla (VP8) sıkıştırmaya yetişemeyince çözünürlük dibe düşüyor.
-    // H264'ü öne alıyoruz: Chrome bunu genelde ekran kartında (Intel QuickSync / NVIDIA NVENC) sıkıştırır.
+    function shouldPreferVp8(q) {
+      if (q.codec === "vp8") return true;
+      if (q.codec === "h264") return false;
+      return hwH264Supported === false || runtimeForceVp8;
+    }
+
+    // Akıllı kodek seçimi:
+    // - Ekran kartı H.264 hızlandırması varsa yüksek seviyeli (High/Main Level 4/5) H.264'ü seç, hemen arkasına VP8 koy.
+    // - Donanım hızlandırma kapalıysa ya da H.264 yazılıma (OpenH264) / CPU darboğazına düşerse direkt çok çekirdekli hafif VP8 kullan (ağır VP9/AV1'e düşürme!).
     function preferHardwareCodec(sender) {
       try {
-        const tr = pc.getTransceivers().find(t => t.sender === sender);
+        const tr = pc && pc.getTransceivers().find(t => t.sender === sender);
         if (!tr || !tr.setCodecPreferences || !RTCRtpReceiver.getCapabilities) return;
-        const codecs = RTCRtpReceiver.getCapabilities("video").codecs;
+        const recvCaps = RTCRtpReceiver.getCapabilities("video");
+        if (!recvCaps || !recvCaps.codecs) return;
+        const sendCaps = (window.RTCRtpSender && RTCRtpSender.getCapabilities) ? RTCRtpSender.getCapabilities("video") : null;
+        const sendCodecs = (sendCaps && sendCaps.codecs) ? sendCaps.codecs : null;
+
+        const isSendable = c => {
+          if (!sendCodecs || !sendCodecs.length) return true;
+          const mime = c.mimeType.toLowerCase();
+          if (mime !== "video/h264") return sendCodecs.some(s => s.mimeType.toLowerCase() === mime);
+          const pm = (c.sdpFmtpLine || "").match(/profile-level-id=([0-9a-f]{4})/i);
+          if (!pm) return sendCodecs.some(s => s.mimeType.toLowerCase() === "video/h264");
+          const profPrefix = pm[1].toLowerCase();
+          return sendCodecs.some(s => s.mimeType.toLowerCase() === "video/h264" && (s.sdpFmtpLine || "").toLowerCase().includes("profile-level-id=" + profPrefix));
+        };
+
+        const h264Rank = c => {
+          const fmtp = c.sdpFmtpLine || "";
+          if (!fmtp.includes("packetization-mode=1") || !isSendable(c)) return 35;
+          const m = fmtp.match(/profile-level-id=([0-9a-f]{4})([0-9a-f]{2})/i);
+          if (!m) return 8;
+          const prof = m[1].toLowerCase();
+          const level = parseInt(m[2], 16) || 31;
+          // Level 3.1 (0x1f=31) 720p30 tavanlı olabildiği için yüksek level (4.0/5.0+) ve High/Main/Constrained profillere öncelik ver
+          const levelScore = level >= 42 ? 0 : (level >= 32 ? 2 : 4);
+          const profScore = prof.startsWith("64") ? 0 : (prof.startsWith("4d") ? 1 : (prof === "42e0" ? 2 : 3));
+          return levelScore + profScore; // 0..7
+        };
+
+        const useVp8 = shouldPreferVp8(getQuality());
+        lastAppliedCodecPref = useVp8 ? "vp8" : "h264";
+
         const rank = c => {
           const m = c.mimeType.toLowerCase();
-          if (m === "video/h264") return (c.sdpFmtpLine || "").includes("packetization-mode=1") ? 0 : 1;
-          if (m === "video/vp9") return 2;
-          if (m === "video/vp8") return 3;
-          if (m === "video/av1") return 4;
-          return 5; // rtx / red / ulpfec en sonda kalsın
+          if (useVp8) {
+            if (m === "video/vp8" && isSendable(c)) return 0;
+            if (m === "video/h264") return 10 + h264Rank(c);
+            if (m === "video/vp9") return 60;
+            if (m === "video/av1") return 70;
+            return 100; // rtx / red / ulpfec / flexfec paket kaybı telafisi için listede kalmalı
+          }
+          if (m === "video/h264") return h264Rank(c);
+          if (m === "video/vp8" && isSendable(c)) return 20; // H.264 olmazsa VP9 yerine çok daha hafif olan VP8 devreye girsin!
+          if (m === "video/vp9") return 60;
+          if (m === "video/av1") return 70;
+          return 100;
         };
-        const sorted = codecs.slice().sort((a, b) => rank(a) - rank(b));
-        if (sorted.length && rank(sorted[0]) <= 1) tr.setCodecPreferences(sorted);
+
+        const sorted = recvCaps.codecs.slice().sort((a, b) => rank(a) - rank(b));
+        if (sorted.length && rank(sorted[0]) < 50) tr.setCodecPreferences(sorted);
       } catch (e) {
         console.warn("Kodek tercihi ayarlanamadı, varsayılan kullanılıyor:", e);
       }
@@ -1983,7 +2168,7 @@
       }
       if (changed) {
         await renegotiate();
-        applyScreenQuality(false);
+        applyScreenQuality(false, false);
       }
     }
 
@@ -2018,7 +2203,7 @@
       const s = stageStreams.get(key);
       if (!s) return;
       activeStreamKey = key;
-      showLiveVideoOnStage(s.stream, s.labelFn());
+      showLiveVideoOnStage(s.stream, s.labelFn(), key);
       document.getElementById("mainVideo").classList.toggle("mirror", s.mirror);
       renderStreamStrip();
       updateStreamStats();
@@ -2028,56 +2213,82 @@
       const strip = document.getElementById("streamStrip");
       if (!strip) return;
       strip.innerHTML = "";
-      if (stageStreams.size === 0) {
+      // Tek yayın varsa ve zaten sahnede açıksa ekstra şerit gösterme; birden fazla yayın varsa veya SS görseli açıksa göster
+      if (stageStreams.size === 0 || (stageStreams.size === 1 && activeStreamKey)) {
         strip.style.display = "none";
         return;
       }
       strip.style.display = "flex";
+      const icons = { "remote-screen": "🖥️", "remote-cam": "📷", "local-screen": "📡", "local-cam": "🤳" };
       ["remote-screen", "remote-cam", "local-screen", "local-cam"].forEach(key => {
         const s = stageStreams.get(key);
         if (!s) return;
         const tile = document.createElement("button");
         tile.className = "stream-tile" + (key === activeStreamKey ? " active" : "");
         tile.title = s.labelFn() + " — büyük ekranda göster";
-        const v = document.createElement("video");
-        v.muted = true;
-        v.autoplay = true;
-        v.playsInline = true;
-        v.srcObject = s.stream;
-        if (s.mirror) v.classList.add("mirror");
-        v.play().catch(() => {});
+        const dot = document.createElement("span");
+        dot.className = "stream-tile-dot";
         const label = document.createElement("span");
         label.className = "stream-tile-label";
-        label.textContent = s.labelFn();
-        tile.append(v, label);
+        label.textContent = `${icons[key] || "🖥️"} ${s.labelFn()}`;
+        tile.append(dot, label);
         tile.onclick = () => selectStream(key);
         strip.appendChild(tile);
       });
     }
 
-    // Gönderen/alan RTP istatistiği: çözünürlük, FPS, Mbps ve kaliteyi neyin sınırladığı
+    // Gönderen/alan RTP istatistiği: çözünürlük, FPS, Mbps ve kaliteyi neyin sınırladığı (tek getStats çağrısıyla hafif ölçüm)
     const lastStatBytes = {};
     let remoteSendInfo = null; // Karşı tarafın yayınını neyin sınırladığı (onun bilgisayarında ölçülür)
 
     async function readRtpStats(senderOrReceiver, statKey, type) {
+      const report = await senderOrReceiver.getStats();
       let o = null;
-      (await senderOrReceiver.getStats()).forEach(r => {
+      report.forEach(r => {
         if (r.type === type && r.kind === "video" && r.frameWidth) o = r;
       });
       if (!o) return null;
       const bytes = type === "outbound-rtp" ? o.bytesSent : o.bytesReceived;
       const prev = lastStatBytes[statKey];
+      const dt = (prev && o.timestamp > prev.t) ? ((o.timestamp - prev.t) / 1000) : 0;
       let mbps = 0;
-      if (prev && o.timestamp > prev.t) mbps = (bytes - prev.b) * 8 / ((o.timestamp - prev.t) / 1000) / 1e6;
-      lastStatBytes[statKey] = { b: bytes, t: o.timestamp };
+      if (dt > 0.05) mbps = (bytes - prev.b) * 8 / dt / 1e6;
+
+      // Anlık 50ms keyframe sıçramalarına aldanmamak için gerçek kısıtlanma süre oranını (qualityLimitationDurations) ölç
+      let cpuRatio = 0;
+      let bwRatio = 0;
+      const lim = o.qualityLimitationDurations || null;
+      if (dt > 0.2 && lim && prev && prev.lim) {
+        cpuRatio = Math.max(0, ((lim.cpu || 0) - (prev.lim.cpu || 0)) / dt);
+        bwRatio = Math.max(0, ((lim.bandwidth || 0) - (prev.lim.bandwidth || 0)) / dt);
+      } else {
+        cpuRatio = o.qualityLimitationReason === "cpu" ? 1 : 0;
+        bwRatio = o.qualityLimitationReason === "bandwidth" ? 1 : 0;
+      }
+
+      lastStatBytes[statKey] = {
+        b: bytes,
+        t: o.timestamp,
+        lim: lim ? { cpu: lim.cpu || 0, bandwidth: lim.bandwidth || 0 } : null
+      };
+
       let codec = "";
-      if (o.codecId) {
-        const statsAgain = await senderOrReceiver.getStats();
-        const c = statsAgain.get ? statsAgain.get(o.codecId) : null;
+      if (o.codecId && report.get) {
+        const c = report.get(o.codecId);
         if (c && c.mimeType) codec = c.mimeType.split("/")[1];
       }
       const hw = o.encoderImplementation || o.decoderImplementation || "";
-      return { w: o.frameWidth, h: o.frameHeight, fps: o.framesPerSecond || 0, mbps, codec, hw, reason: o.qualityLimitationReason || "none" };
+      return {
+        w: o.frameWidth,
+        h: o.frameHeight,
+        fps: o.framesPerSecond || 0,
+        mbps,
+        codec,
+        hw,
+        reason: o.qualityLimitationReason || "none",
+        cpuRatio,
+        bwRatio
+      };
     }
 
     const LIMIT_TEXT = {
@@ -2094,7 +2305,15 @@
         const snd = vt && pc ? pc.getSenders().find(x => x.track === vt) : null;
         if (snd) {
           outScreen = await readRtpStats(snd, "out-screen", "outbound-rtp");
-          if (outScreen) sendDataPacket({ type: "send-stats", reason: outScreen.reason, mbps: outScreen.mbps });
+          if (outScreen) {
+            sendDataPacket({
+              type: "send-stats",
+              reason: outScreen.reason,
+              mbps: outScreen.mbps,
+              codec: outScreen.codec,
+              hw: outScreen.hw
+            });
+          }
         }
       } catch (e) {}
 
@@ -2119,7 +2338,10 @@
         } else if (pc) {
           const recv = pc.getReceivers().find(x => x.track === track);
           if (recv) info = await readRtpStats(recv, "in-" + activeStreamKey, "inbound-rtp");
-          if (info && activeStreamKey === "remote-screen" && remoteSendInfo) info.reason = remoteSendInfo.reason;
+          if (info && activeStreamKey === "remote-screen" && remoteSendInfo) {
+            info.reason = remoteSendInfo.reason;
+            if (remoteSendInfo.hw) info.hw = remoteSendInfo.hw;
+          }
         }
       } catch (e) {}
       if (!info || !info.w) { el.textContent = ""; return; }
@@ -2181,7 +2403,7 @@
       if (hadSender) await renegotiate();
     }
 
-    // ---------- Yayın kalitesi (çözünürlük / FPS / bit hızı / akıcılık-netlik) ----------
+    // ---------- Yayın kalitesi (çözünürlük / FPS / bit hızı / kodek / öncelik) ----------
     function getQuality() {
       const v = id => {
         const el = document.getElementById(id);
@@ -2189,13 +2411,14 @@
       };
       // Tek tuş: "Otomatik" seçiliyse her şeye kod karar verir, elle ayarlar yok sayılır
       if ((v("qPreset") || "auto") === "auto") {
-        return { preset: "auto", res: "auto", fps: "auto", bitrate: "auto", mode: "motion" };
+        return { preset: "auto", res: "auto", fps: "auto", bitrate: "auto", codec: "auto", mode: "motion" };
       }
       return {
         preset: "manual",
         res: v("qRes") || "auto",
         fps: v("qFps") || "auto",
         bitrate: v("qBitrate") || "auto",
+        codec: v("qCodec") || "auto",
         mode: v("qMode") || "motion"
       };
     }
@@ -2212,27 +2435,56 @@
       return q.res === "auto" || q.fps === "auto";
     }
 
-    // Otomatik modda denenecek kalite basamakları (en iyiden kötüye)
+    // Kalite basamakları: kesinlikle tek yönlü azalan yük sırasında (düşürürken asla daha yüksek çözünürlüğe/bitrate'e zıplamaz!)
     function buildLadder(q) {
       const vt = localScreenStream ? localScreenStream.getVideoTracks()[0] : null;
-      const srcH = (vt && vt.getSettings().height) || Math.round(screen.height * (window.devicePixelRatio || 1)) || 1080;
-      let heights;
-      if (q.res === "auto") heights = [...new Set([Math.min(srcH, 1080), 720, 540])].filter(h => h <= srcH);
-      else if (q.res === "source") heights = [srcH];
-      else heights = [Math.min(Number(q.res), srcH)];
-      if (!heights.length) heights = [srcH];
-      const fpsList = q.fps === "auto" ? [60, 30] : [Number(q.fps)];
-      const ladder = [];
-      heights.forEach(h => fpsList.forEach(fps => ladder.push({ h, fps })));
-      // Akıcılık: önce FPS'i koru, çözünürlüğü düşür. Netlik: önce çözünürlüğü koru, FPS'i düşür.
-      ladder.sort((a, b) => q.mode === "detail" ? (b.h - a.h) || (b.fps - a.fps) : (b.fps - a.fps) || (b.h - a.h));
-      return ladder;
+      const capH = screenNativeHeight || (vt && vt.getSettings().height) || Math.round(screen.height * (window.devicePixelRatio || 1)) || 1080;
+
+      // 1. Çözünürlük ve FPS'in ikisi de elle seçilmişse tek sabit hedef
+      if (q.res !== "auto" && q.fps !== "auto") {
+        const h = q.res === "source" ? capH : Number(q.res);
+        return [{ h, fps: Number(q.fps) }];
+      }
+
+      // 2. Çözünürlük elle sabitlenmiş (örn: 720p), sadece FPS otomatikse -> çözünürlüğe ASLA dokunma, sadece FPS'i 60 -> 30 ayarla
+      if (q.res !== "auto" && q.fps === "auto") {
+        const h = q.res === "source" ? capH : Number(q.res);
+        return q.mode === "detail"
+          ? [{ h, fps: 30 }, { h, fps: 15 }]
+          : [{ h, fps: 60 }, { h, fps: 30 }];
+      }
+
+      // 3. Çözünürlük otomatik, FPS elle sabitlenmişse -> FPS'i koruyup çözünürlük basamaklarını sırala
+      if (q.res === "auto" && q.fps !== "auto") {
+        const fps = Number(q.fps);
+        const heights = [...new Set([Math.min(capH, 1080), 720, 540])].filter(h => h <= capH + 16).sort((a, b) => b - a);
+        return (heights.length ? heights : [capH]).map(h => ({ h, fps }));
+      }
+
+      // 4. Tam otomatik mod: her basamak bir öncekinden hem piksel/sn hem bit hızı olarak kesin daha hafiftir
+      const rawSteps = q.mode === "detail"
+        ? [
+            { h: 1080, fps: 30 },
+            { h: 1080, fps: 15 },
+            { h: 720,  fps: 30 },
+            { h: 720,  fps: 15 }
+          ]
+        : [
+            { h: 1080, fps: 60 },
+            { h: 720,  fps: 60 },
+            { h: 720,  fps: 30 },
+            { h: 540,  fps: 30 }
+          ];
+      const filtered = rawSteps.filter(s => s.h <= capH + 16);
+      return filtered.length ? filtered : [{ h: capH, fps: 30 }];
     }
 
     let autoLevel = 0;
     let autoBadCount = 0;
     let autoGoodSince = 0;
     let autoChangedAt = 0;
+    let autoFailCounts = {};   // Hangi basamak kaç kere darboğaza girdi (20 sn'de bir in-çık dalgalanmasını önler)
+    let h264StruggleCount = 0; // H.264 üst üste işlemci darboğazına girerse VP8'e kurtarma sayacı
 
     function currentTarget(q) {
       const ladder = buildLadder(q);
@@ -2245,21 +2497,28 @@
       return `${t.h}p ${t.fps} FPS`;
     }
 
-    function screenVideoConstraints(q) {
-      const t = currentTarget(q);
+    // Ekran yakalayıcı (getDisplayMedia / elle değişim) kısıtları:
+    // Geniş ekranlarda (16:10 laptop / 21:9 ultrawide) yüksekliğin küçülmemesi için 22:9 genişlik payı bırakılır.
+    function captureVideoConstraints(q) {
+      const maxFps = q.fps === "auto" ? (q.mode === "detail" ? 30 : 60) : Number(q.fps);
+      if (q.res === "source") {
+        return { frameRate: { ideal: maxFps, max: maxFps } };
+      }
+      const capH = q.res === "auto" ? 1080 : Number(q.res);
       return {
-        frameRate: { ideal: t.fps, max: t.fps },
-        height: { max: t.h },
-        width: { max: Math.round(t.h * 16 / 9) }
+        frameRate: { ideal: maxFps, max: maxFps },
+        height: { ideal: capH, max: capH },
+        width: { max: Math.round(capH * 22 / 9) }
       };
     }
 
-    // WebRTC normalde ~300 kbps'den başlayıp çok yavaş yükselir -> ilk dakika bulanık/düşük çözünürlük.
-    // Karşıdan gelen SDP'deki video kodeklerine başlangıç/min/max bit hızı ekleyerek direkt yüksek kaliteden başlatıyoruz.
+    // WebRTC normalde ~300 kbps'den çok yavaş yükselir; ancak 6000 kbps başlangıç + 1500 kbps alt taban vermek
+    // ev internetinde upload kuyruğunu şişirip (bufferbloat) kare düşmesine ve FPS çökmesine yol açıyordu.
+    // Nazik bir başlangıç ipucu (1500 kbps) verip alt tabanı serbest bırakıyoruz ki anlık sıkışmada FPS çökmesin.
     function boostSdp(desc) {
       try {
         const lines = desc.sdp.split("\r\n");
-        const params = "x-google-start-bitrate=6000;x-google-min-bitrate=1500;x-google-max-bitrate=30000";
+        const params = "x-google-start-bitrate=1500";
         let inVideo = false;
         const videoPts = [];
         lines.forEach(l => {
@@ -2286,24 +2545,48 @@
       }
     }
 
-    function calcBitrate(w, h, fps) {
-      return Math.round(Math.min(30e6, Math.max(2.5e6, w * h * fps * 0.075)));
+    function calcBitrate(w, h, fps, isAuto) {
+      const bpp = fps > 45 ? 0.062 : 0.082;
+      const cap = isAuto ? 6.2e6 : 25e6;
+      return Math.round(Math.min(cap, Math.max(1.3e6, w * h * fps * bpp)));
     }
 
     function targetBitrate(q, t, track) {
       if (q.bitrate !== "auto") return Number(q.bitrate) * 1e6;
       const st = track ? track.getSettings() : {};
-      return calcBitrate(st.width || Math.round(t.h * 16 / 9), st.height || t.h, t.fps);
+      const rawW = st.width || screenNativeWidth || Math.round(t.h * 16 / 9);
+      const rawH = st.height || screenNativeHeight || t.h;
+      const scale = rawH > t.h ? (rawH / t.h) : 1;
+      return calcBitrate(Math.round(rawW / scale), Math.round(rawH / scale), t.fps, isAutoQuality(q));
     }
 
-    async function applyScreenQuality(announce) {
+    async function applyScreenQuality(announce, reconfigureCapture = false) {
       if (!localScreenStream) return;
       const track = localScreenStream.getVideoTracks()[0];
       if (!track) return;
       const q = getQuality();
+
+      // Sadece kullanıcı kalite panelinden elle ayar değiştirdiğinde yakalayıcıyı yeniden boyutlandır.
+      // Otomatik geçişlerde yakalayıcıya dokunmayıp scaleResolutionDownBy kullanıyoruz -> yayın donmaz ve kaynak çözünürlük bozulmaz!
+      if (reconfigureCapture) {
+        try {
+          await track.applyConstraints(captureVideoConstraints(q));
+          const stNow = track.getSettings ? track.getSettings() : {};
+          if (stNow.height) screenNativeHeight = stNow.height;
+          if (stNow.width) screenNativeWidth = stNow.width;
+        } catch (e) {
+          console.warn("Çözünürlük/FPS uygulanamadı:", e);
+        }
+      }
+
       const t = currentTarget(q);
-      try { await track.applyConstraints(screenVideoConstraints(q)); } catch (e) { console.warn("Çözünürlük/FPS uygulanamadı:", e); }
-      try { track.contentHint = q.mode === "detail" ? "detail" : "motion"; } catch (e) {}
+      // "motion" hint'i ekran paylaşımında webcam QP ölçekleyicisini tetikleyip 720p'yi bile 360p'ye düşürdüğü için kullanmıyoruz.
+      try { track.contentHint = q.mode === "detail" ? "detail" : ""; } catch (e) {}
+
+      const st = track.getSettings ? track.getSettings() : {};
+      const rawH = st.height || screenNativeHeight || t.h;
+      const rawW = st.width || screenNativeWidth || Math.round(rawH * 16 / 9);
+      const scaleDown = (q.res !== "source" && rawH > t.h + 4) ? Math.max(1, Number((rawH / t.h).toFixed(3))) : 1;
 
       const sender = screenSenders.find(x => x.track === track);
       const bitrate = targetBitrate(q, t, track);
@@ -2312,9 +2595,9 @@
         if (!p.encodings || !p.encodings.length) p.encodings = [{}];
         p.encodings[0].maxBitrate = bitrate;
         p.encodings[0].maxFramerate = t.fps;
-        // Otomatik modda çözünürlüğü biz yönetiyoruz -> kodlayıcı kendi kafasına göre 320x180'e çekmesin.
-        // Elle modda: netlik = çözünürlüğü koru, akıcılık = dengeli.
-        p.degradationPreference = (isAutoQuality(q) || q.mode === "detail") ? "maintain-resolution" : "balanced";
+        p.encodings[0].scaleResolutionDownBy = scaleDown;
+        // Kullanıcı "Maks. FPS (esnek çözünürlük)" seçmediği sürece çözünürlüğü koru (720p seçildiyse 720p kalsın, kafasına göre 360p yapmasın!)
+        p.degradationPreference = q.mode === "fps" ? "maintain-framerate" : "maintain-resolution";
         try {
           await sender.setParameters(p);
         } catch (e) {
@@ -2323,66 +2606,117 @@
       }
 
       if (announce) {
-        const st = track.getSettings();
-        showToast(`⚙️ Yayın: ${st.width}×${st.height} · ${Math.round(st.frameRate || t.fps)} FPS · ${(bitrate / 1e6).toFixed(0)} Mbps${isAutoQuality(q) ? " (🤖 otomatik)" : ""}`);
+        const outW = Math.round(rawW / scaleDown);
+        const outH = Math.round(rawH / scaleDown);
+        showToast(`⚙️ Yayın: ${outW}×${outH} · ${Math.round(t.fps)} FPS · ${(bitrate / 1e6).toFixed(1)} Mbps${isAutoQuality(q) ? " (🤖 otomatik)" : ""}`);
       }
     }
 
-    // 🤖 Otomatik kalite: tarayıcı "işlemci/internet yetmiyor" derse bir basamak düşür, 20 sn sorunsuz giderse yükselt.
-    // (FPS'e bakılmaz: ekran değişmezken tarayıcı zaten az kare gönderir, bu sorun değildir.)
+    // 🤖 Canlı yayın sağlık kontrolü:
+    // 1) Kodek kurtarma (elle 720p seçili olsa bile çalışır): H.264 yazılıma (OpenH264) düştüyse veya işlemciyi boğuyorsa otomatik VP8'e geçer.
+    // 2) Otomatik kalite: anlık 50ms sıçramalara değil gerçek süre oranına (cpuRatio/bwRatio >= %45) bakar ve 2 kere başarısız olan üst basamağa tekrar çıkıp dalgalanma yapmaz.
     async function autoQualityTick() {
+      if (!localScreenStream || !pc) { autoBadCount = 0; h264StruggleCount = 0; return; }
       const q = getQuality();
-      if (!isAutoQuality(q) || !localScreenStream || !pc) { autoBadCount = 0; return; }
       const track = localScreenStream.getVideoTracks()[0];
       const sender = track ? screenSenders.find(x => x.track === track) : null;
       if (!sender) return;
       let st = null;
       try { st = await readRtpStats(sender, "auto-screen", "outbound-rtp"); } catch (e) {}
-      if (!st) return;
+      if (!st || !st.w) return;
+
+      // 1. KODEK KURTARMA: Otomatik kodek modunda H.264 yazılım (OpenH264) çalışıyorsa veya işlemciyi sürekli kilitliyorsa VP8'e geç
+      if (q.codec === "auto" && !runtimeForceVp8 && /^h264$/i.test(st.codec)) {
+        const isSoftwareOpenH264 = /openh264/i.test(st.hw);
+        if (st.cpuRatio >= 0.45) h264StruggleCount++;
+        else h264StruggleCount = 0;
+
+        if (isSoftwareOpenH264 || h264StruggleCount >= 3) {
+          runtimeForceVp8 = true;
+          h264StruggleCount = 0;
+          autoChangedAt = Date.now();
+          preferHardwareCodec(sender);
+          await renegotiate();
+          showToast(isSoftwareOpenH264
+            ? "⚡ Ekran kartı H.264 kapalı (OpenH264 CPU algılandı); yüksek FPS için VP8 kodeğine geçildi."
+            : "⚡ H.264 kodlayıcı zorlandı; stabil FPS için otomatik VP8 kodeğine geçildi.");
+          return;
+        }
+      } else {
+        h264StruggleCount = 0;
+      }
+
+      // 2. OTOMATİK BASAMAK YÖNETİMİ (yalnızca çözünürlük veya FPS "Otomatik" bırakıldıysa)
+      if (!isAutoQuality(q)) { autoBadCount = 0; return; }
       const now = Date.now();
       if (now - autoChangedAt < 6000) return;
       const ladder = buildLadder(q);
-      const struggling = st.reason === "cpu" || st.reason === "bandwidth";
+      const cpuLim = st.cpuRatio >= 0.45;
+      const bwLim = st.bwRatio >= 0.45;
+      const struggling = cpuLim || bwLim;
 
       if (struggling) {
         autoGoodSince = 0;
         autoBadCount++;
         if (autoBadCount >= 2 && autoLevel < ladder.length - 1) {
+          autoFailCounts[autoLevel] = (autoFailCounts[autoLevel] || 0) + 1;
           autoLevel++;
           autoBadCount = 0;
           autoChangedAt = now;
-          await applyScreenQuality(false);
-          showToast(`🤖 Kalite düşürüldü: ${targetLabel(ladder[autoLevel])} (${st.reason === "cpu" ? "işlemci yetişemiyor" : "upload yetmiyor"})`);
+          await applyScreenQuality(false, false);
+          showToast(`🤖 Kalite dengelendi: ${targetLabel(ladder[autoLevel])} (${cpuLim ? "işlemci sınırı" : "upload sınırı"})`);
+        }
+      } else if (st.cpuRatio < 0.12 && st.bwRatio < 0.12) {
+        autoBadCount = 0;
+        if (!autoGoodSince) autoGoodSince = now;
+        if (autoLevel > 0) {
+          const prevFails = autoFailCounts[autoLevel - 1] || 0;
+          // Üst basamak zaten 2 kez çöktüyse kapasite sınırı orasıdır -> 20 sn'de bir çıkıp yayını tekrar bozma!
+          const waitMs = prevFails === 0 ? 40000 : 90000;
+          if (prevFails < 2 && now - autoGoodSince > waitMs) {
+            autoLevel--;
+            autoGoodSince = 0;
+            autoChangedAt = now;
+            await applyScreenQuality(false, false);
+            showToast(`🤖 Hat rahatladı, kalite yükseltildi: ${targetLabel(ladder[autoLevel])}`);
+          }
         }
       } else {
         autoBadCount = 0;
-        if (!autoGoodSince) autoGoodSince = now;
-        if (autoLevel > 0 && now - autoGoodSince > 20000) {
-          autoLevel--;
-          autoGoodSince = 0;
-          autoChangedAt = now;
-          await applyScreenQuality(false);
-          showToast(`🤖 Kalite yükseltildi: ${targetLabel(ladder[autoLevel])}`);
-        }
       }
     }
     everyMs(autoQualityTick, 2000);
 
-    function onQualityChange() {
+    async function onQualityChange() {
       syncQualityPanel();
       try {
         const raw = {};
-        [["preset", "qPreset"], ["res", "qRes"], ["fps", "qFps"], ["bitrate", "qBitrate"], ["mode", "qMode"]].forEach(([k, id]) => {
+        [["preset", "qPreset"], ["res", "qRes"], ["fps", "qFps"], ["bitrate", "qBitrate"], ["codec", "qCodec"], ["mode", "qMode"]].forEach(([k, id]) => {
           const el = document.getElementById(id);
           if (el) raw[k] = el.value;
         });
         localStorage.setItem("kilyavuzQuality3", JSON.stringify(raw));
       } catch (e) {}
-      autoLevel = 0;
+      const q = getQuality();
+      runtimeForceVp8 = false;
+      h264StruggleCount = 0;
+      autoFailCounts = {};
+      autoLevel = (q.res === "auto" && q.fps === "auto" && hwH264Supported === false) ? 1 : 0;
       autoBadCount = 0;
       autoGoodSince = 0;
       autoChangedAt = Date.now();
-      applyScreenQuality(true);
+      await applyScreenQuality(true, true);
+
+      // Yayın açıkken kodek tercihi değiştiyse yayını kapatmadan anında yeni kodekle el sıkış
+      if (localScreenStream && pc && dataChannel && dataChannel.readyState === "open") {
+        const vt = localScreenStream.getVideoTracks()[0];
+        const sender = vt ? screenSenders.find(x => x.track === vt) : null;
+        const desiredPref = shouldPreferVp8(q) ? "vp8" : "h264";
+        if (sender && desiredPref !== lastAppliedCodecPref) {
+          preferHardwareCodec(sender);
+          await renegotiate();
+        }
+      }
     }
 
     function toggleQualityPanel(force) {
@@ -2402,7 +2736,7 @@
       try {
         const saved = JSON.parse(localStorage.getItem("kilyavuzQuality3") || "null");
         if (!saved) return;
-        const ids = { preset: "qPreset", res: "qRes", fps: "qFps", bitrate: "qBitrate", mode: "qMode" };
+        const ids = { preset: "qPreset", res: "qRes", fps: "qFps", bitrate: "qBitrate", codec: "qCodec", mode: "qMode" };
         Object.keys(ids).forEach(k => {
           const el = document.getElementById(ids[k]);
           if (el && saved[k] && [...el.options].some(o => o.value === String(saved[k]))) el.value = String(saved[k]);
@@ -2518,13 +2852,19 @@
       const videoEl = document.getElementById("mainVideo");
       const imgEl = document.getElementById("mainImage");
       const emptyEl = document.getElementById("stageEmpty");
+      const pausedEl = document.getElementById("localPreviewPaused");
       const tagEl = document.getElementById("streamTag");
       const snapBtn = document.getElementById("btnSnapshot");
+      const prevBtn = document.getElementById("btnTogglePreview");
 
-      // Görsel açılınca video gizlenir; alttaki yayın seçiciden tekrar yayına dönülebilir
+      // Görsel açılınca video gizlenir ve arka planda boşuna render edilmez; alttaki yayın seçiciden tekrar yayına dönülebilir
       activeStreamKey = null;
+      try { videoEl.pause(); } catch (e) {}
+      videoEl.srcObject = null;
       videoEl.style.display = "none";
+      if (pausedEl) pausedEl.style.display = "none";
       snapBtn.style.display = "none";
+      if (prevBtn) prevBtn.style.display = "none";
       renderStreamStrip();
       emptyEl.style.display = "none";
       imgEl.src = dataUrl;
